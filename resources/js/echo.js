@@ -6,7 +6,8 @@ window.Pusher = Pusher;
 
 window.addEventListener('DOMContentLoaded', () => {
     const token = document.querySelector('meta[name="api-token"]')?.content;
-    const userId = document.getElementById('sender_id')?.value;
+    const userId = document.getElementById('current_user_id')?.value;
+
 
     if (!token || !userId) {
         console.error('❌ Missing token or user ID');
@@ -29,9 +30,13 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+    window.Echo.connector.pusher.connection.bind('connected', () => {
+        console.log('✅ WebSocket connected');
+    });
 
-    // ✅ Automatically listen to your private chat channel
-    Echo.private(`chat.${userId}`)
+    const echoInstance = window.Echo;
+
+    echoInstance.private(`chat.${userId}`)
         .listen('.MessageSent', (e) => {
             console.log('📥 Received (auto):', e.message.text);
 
@@ -40,7 +45,6 @@ window.addEventListener('DOMContentLoaded', () => {
             document.getElementById('messages')?.appendChild(div);
         });
 
-    // ✅ Send message handler
     document.getElementById('send')?.addEventListener('click', () => {
         const receiverId = document.getElementById('receiver_id').value;
         const text = document.getElementById('message_input').value;
