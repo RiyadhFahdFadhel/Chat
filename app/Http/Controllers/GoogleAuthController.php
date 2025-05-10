@@ -20,22 +20,21 @@ class GoogleAuthController extends Controller
     public function callback()
     {
         // $googleUser = Socialite::driver('google')->stateless()->user();
-
+        
         $googleUser = Socialite::driver('google')->user();
-
+        
         $user = User::updateOrCreate(
             ['email' => $googleUser->getEmail()],
             [
                 'name' => $googleUser->getName(),
                 'email' => $googleUser->getEmail(),
-
-            ]
-        );
+                
+                ]
+            );
 
         Auth::login($user);
 
-
-        return redirect('/chat');
+        return redirect('/users');
 
     }
 }

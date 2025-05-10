@@ -3,45 +3,67 @@
 namespace App\Http\Controllers;
 
 use App\Events\MessageSent;
+use App\Events\UserTyping;
 use App\Models\Message;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class MessageController extends Controller
 {
     // Send a new message
-    public function store(Request $request)
+    public function index()
     {
-        $validated = $request->validate([
-            'sender_id' => 'required|exists:users,id',
-            'receiver_id' => 'required|exists:users,id',
-            'text' => 'required|string',
+        $users = User::where('id', '!=', Auth::id())->get();
+        return view('users', compact('users'));
+    }
+
+    public function chat($receiverId)
+    {
+        $receiver = User::find($receiverId);
+
+        $messages = Message::where(function ($query) use ($receiverId){
+            $query->where('sender_id', Auth::id())->where('receiver_id', $receiverId);
+        })->orWhere(function ($query) use ($receiverId) {
+            $query->where('sender_id', $receiverId)->where('receiver_id', Auth::id());
+        })->get();
+
+        return view('chat', compact('receiver', 'messages'));
+    }
+
+    public function sendMessage(Request $request, $receiverId)
+    {
+        // save message to DB
+        $message = Message::create([
+            'sender_id'     => Auth::id(),
+            'receiver_id'   => $receiverId,
+            'text'     => $request->message
         ]);
-    
-        $message = Message::create($validated);
-    
-        // 🔥 Fire the real-time event
+        
+        // Fire the message event
         broadcast(new MessageSent($message))->toOthers();
-    
-        return response()->json($message, 201);
+        
+        return response()->json(['status' => 'Message sent!']);
     }
 
-    // Get messages between the authenticated user and another user
-    public function index(Request $request)
+    public function typing()
     {
-        $request->validate([
-            'receiver_id' => 'required|exists:users,id',
-        ]);
-
-        $messages = Message::where(function ($query) use ($request) {
-            $query->where('sender_id', Auth::id())
-                  ->where('receiver_id', $request->receiver_id);
-        })->orWhere(function ($query) use ($request) {
-            $query->where('sender_id', $request->receiver_id)
-                  ->where('receiver_id', Auth::id());
-        })->orderBy('created_at')->get();
-
-        return response()->json($messages);
+        // Fire the typing event
+        broadcast(new UserTyping(Auth::id()))->toOthers();
+        return response()->json(['status' => 'typing broadcasted!']);
     }
-}
 
+    public function setOnline()
+    {
+        Cache::put('user-is-online-' . Auth::id(), true, now()->addMinutes(5));
+        return response()->json(['status' => 'Online']);
+    }
+
+    public function setOffline()
+    {
+        Cache::forget('user-is-online-' . Auth::id());
+        return response()->json(['status' => 'Offline']);
+    }
+
+}

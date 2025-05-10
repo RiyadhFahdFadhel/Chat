@@ -21,10 +21,13 @@ class MessageSent implements ShouldBroadcast
         $this->message = $message;
     }
 
-    public function broadcastOn(): Channel
+    public function broadcastOn(): array
     {
         // Only the receiver gets the message in private chat
-        return new PrivateChannel('chat.' . $this->message->receiver_id);
+        return [
+
+            new PrivateChannel('chat.' . $this->message->receiver_id),
+        ];
     }
 
     public function broadcastAs(): string
